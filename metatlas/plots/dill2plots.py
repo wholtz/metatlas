@@ -5,11 +5,10 @@ import os
 import os.path
 import multiprocessing as mp
 # os.environ['R_LIBS_USER'] = '/project/projectdirs/metatlas/r_pkgs/'
-#curr_ld_lib_path = ''
+# curr_ld_lib_path = ''
 
 
 from metatlas.datastructures import metatlas_objects as metob
-from metatlas.io import h5_query as h5q
 from metatlas.io import metatlas_get_data_helper_fun as ma_data
 from metatlas.tools import spectralprocessing as sp
 from metatlas.plots import chromplotplus as cpp
@@ -19,32 +18,27 @@ from textwrap import fill, TextWrapper
 # import qgrid
 import pandas as pd
 import os
-import tables
-import pickle
 import dill
 import numpy as np
-import re
 import json
 import matplotlib.pyplot as plt
 
 from rdkit import Chem
-from rdkit.Chem import Descriptors, rdMolDescriptors, AllChem, Draw, rdDepictor
-from rdkit.Chem.Draw import rdMolDraw2D, IPythonConsole
+from rdkit.Chem import Draw, rdDepictor
+from rdkit.Chem.Draw import rdMolDraw2D
 from itertools import cycle
-from collections import defaultdict
-from IPython.display import SVG,display,clear_output
 
 
-from ipywidgets import interact, interactive, fixed, IntProgress
+from ipywidgets import interact, interactive
 import ipywidgets as widgets
 from IPython.display import display
 
 import getpass
 
 from ast import literal_eval
-# from datetime import datetime
+from datetime import datetime
 
-from matplotlib.widgets import Slider, Button, RadioButtons
+from matplotlib.widgets import Slider, RadioButtons
 
 from matplotlib.widgets import AxesWidget
 
@@ -52,15 +46,11 @@ import gspread
 # from oauth2client.client import SignedJwtAssertionCredentials
 from oauth2client.service_account import ServiceAccountCredentials
 
-import sys
 import six
 from six.moves import range
 from six.moves import zip
 from functools import reduce
-if sys.version_info[0] < 3:
-    from StringIO import StringIO
-else:
-    from io import StringIO
+from io import StringIO
 
 ADDUCT_INFO = {'[2M+H]': {'charge': '1',
               'color': '#fabebe',
@@ -389,25 +379,26 @@ class VertSlider(AxesWidget):
 class adjust_rt_for_selected_compound(object):
     def __init__(self,
                  data,
-                 include_lcmsruns = None,
-                 exclude_lcmsruns = None,
-                 include_groups = None,
-                 exclude_groups = None,
-                 msms_hits = None,
-                 color_me = '',
-                 compound_idx = 0,
-                 width = 10,
-                 height = 4,
+                 include_lcmsruns=None,
+                 exclude_lcmsruns=None,
+                 include_groups=None,
+                 exclude_groups=None,
+                 msms_hits=None,
+                 color_me='',
+                 compound_idx=0,
+                 width=10,
+                 height=4,
                  y_scale='linear',
-                 alpha = 0.5,
-                 min_max_color = 'green',
-                 peak_color = 'darkviolet',
-                 slider_color = 'ghostwhite',
-                 y_max = 'auto',
-                 y_min = 0,
-                 peak_flags = None,
-                 msms_flags = None,
-                 adjustable_rt_peak = False):
+                 alpha=0.5,
+                 min_max_color='green',
+                 peak_color='darkviolet',
+                 slider_color='ghostwhite',
+                 y_max='auto',
+             
+                 y_min=0,
+                 peak_flags=None,
+                 msms_flags=None,
+                 adjustable_rt_peak=False):
         """
         data: a metatlas_dataset where files and compounds are stored.
         for example,
@@ -444,17 +435,17 @@ class adjust_rt_for_selected_compound(object):
         self.configure_flags()
         self.filter_runs(include_lcmsruns, include_groups, exclude_lcmsruns, exclude_groups)
 
-        self.atlas = metob.retrieve('Atlas',unique_id = self.data[0][0]['atlas_unique_id'],username='*')[-1]
-        
+        self.atlas = metob.retrieve('Atlas', unique_id=self.data[0][0]['atlas_unique_id'], username='*')[-1]
+
         print(("loaded file for username = ", self.atlas.username))
         # only the atlas owner can change RT limits or flags
         self.enable_edit = getpass.getuser() != self.atlas.username
 
-        #Turn On interactive plot
+        # Turn On interactive plot
         plt.ion()
         self.layout_figure()
 
-        #create all event handlers
+        # create all event handlers
         self.fig.canvas.callbacks.connect('pick_event', self.on_pick)
         self.fig.canvas.mpl_connect('key_press_event', self.press)
 
@@ -470,48 +461,53 @@ class adjust_rt_for_selected_compound(object):
 
     def eic_plot(self):
         self.ax.set_title('')
-        self.ax.ticklabel_format(style='sci', axis='y', scilimits=(0,0))
+        self.ax.ticklabel_format(style='sci', axis='y', scilimits=(0, 0))
         self.ax.set_xlabel('Retention Time')
-        #set y-scale and bounds if provided
+        # set y-scale and bounds if provided
         self.ax.set_yscale(self.y_scale)
         if self.y_max != 'auto':
-            self.ax.set_ylim(self.y_min,self.y_max)
+            self.ax.set_ylim(self.y_min, self.y_max)
         self.ax.set_ylabel(self.get_ms1_y_axis_label())
         self.y_max_slider()
-        
-        display_eic_data(self)
-        self.lin_log_radio = self.create_radio_buttons(self.lin_log_ax, ('linear', 'log'), self.set_lin_log, active_idx=0)
+
+        self.display_eic_data()
+        self.lin_log_radio = self.create_radio_buttons(self.lin_log_ax, ('linear', 'log'),
+                                                       self.set_lin_log, active_idx=0)
 
         rt_ref_id = self.data[0][self.compound_idx]['identification'].rt_references[-1].unique_id
-        self.my_rt = metob.retrieve('RTReference', unique_id = rt_ref_id, username='*')[-1]
+        self.my_rt = metob.retrieve('RTReference', unique_id=rt_ref_id, username='*')[-1]
         self.rt_bounds()
 
     def flag_radio_buttons(self):
         my_id = self.compounds[self.data[0][self.compound_idx]['identification'].unique_id]
         peak_flag_index = self.peak_flags.index(my_id.ms1_notes) if my_id.ms1_notes in self.peak_flags else 0
         self.peak_flag_radio = self.create_radio_buttons(self.peak_flag_ax, self.peak_flags,
-                self.set_peak_flag, active_idx=peak_flag_index)
+                                                         self.set_peak_flag, active_idx=peak_flag_index)
 
         msms_flag_index = self.msms_flags.index(my_id.ms2_notes) if my_id.ms2_notes in self.msms_flags else 0
         self.msms_flag_radio = self.create_radio_buttons(self.msms_flag_ax, self.msms_flags,
-                self.set_msms_flag, active_idx=msms_flag_index)
+                                                         self.set_msms_flag, active_idx=msms_flag_index)
 
     def y_max_slider(self):
-        (self.slider_y_min,self.slider_y_max) = self.ax.get_ylim()
+        (self.slider_y_min, self.slider_y_max) = self.ax.get_ylim()
         self.slider_val = self.slider_y_max
-        self.y_scale_slider = VertSlider(self.y_scale_ax,'',self.slider_y_min,self.slider_y_max, valfmt = '', valinit=self.slider_y_max,color=self.peak_color)
+        self.y_scale_slider = VertSlider(self.y_scale_ax, '', self.slider_y_min, self.slider_y_max,
+                                         valfmt='', valinit=self.slider_y_max, color=self.peak_color)
         self.y_scale_slider.vline.set_color('black')
         self.y_scale_slider.vline.set_linewidth(8)
         self.y_scale_slider.on_changed(self.update_yscale)
 
     def rt_bounds(self):
         min_x, max_x = self.ax.get_xlim()
-        self.rt_min_slider = rt_slider(self.rt_min_ax, 'RT min', min_x, max_x, self.my_rt.rt_min, self.min_max_color)
-        self.rt_max_slider = rt_slider(self.rt_max_ax, 'RT max', min_x, max_x, self.my_rt.rt_max, self.min_max_color)
-        self.rt_peak_slider = rt_slider(self.rt_peak_ax,'RT peak', min_x, max_x, self.my_rt.rt_peak, self.peak_color)
-        self.min_line = self.ax.axvline(self.my_rt.rt_min, color=self.min_max_color,linewidth=4.0)
-        self.max_line = self.ax.axvline(self.my_rt.rt_max, color=self.min_max_color,linewidth=4.0)
-        self.peak_line = self.ax.axvline(self.my_rt.rt_peak, color=self.peak_color,linewidth=4.0)
+        self.rt_min_slider = self.rt_slider(self.rt_min_ax, 'RT min', min_x, max_x,
+                                            self.my_rt.rt_min, self.min_max_color)
+        self.rt_max_slider = self.rt_slider(self.rt_max_ax, 'RT max', min_x, max_x,
+                                            self.my_rt.rt_max, self.min_max_color)
+        self.rt_peak_slider = self.rt_slider(self.rt_peak_ax, 'RT peak', min_x, max_x,
+                                             self.my_rt.rt_peak, self.peak_color)
+        self.min_line = self.ax.axvline(self.my_rt.rt_min, color=self.min_max_color, linewidth=4.0)
+        self.max_line = self.ax.axvline(self.my_rt.rt_max, color=self.min_max_color, linewidth=4.0)
+        self.peak_line = self.ax.axvline(self.my_rt.rt_peak, color=self.peak_color, linewidth=4.0)
 
     def rt_slider(self, axes, label, min_x, max_x, valinit, color):
         slider = Slider(axes, label, min_x, max_x, valinit=valinit, color=color)
@@ -521,7 +517,7 @@ class adjust_rt_for_selected_compound(object):
         return slider
 
     def display_eic_data(self):
-        for d in self.data: #this loops through the files
+        for d in self.data:  # this loops through the files
             eic = d[self.compound_idx]['data']['eic']
             if eic:
                 if len(eic['rt']) > 0:
@@ -531,7 +527,7 @@ class adjust_rt_for_selected_compound(object):
                     y = y[y>0]#y[y<0.0] = 0.0
                     label = d[self.compound_idx]['lcmsrun'].name.replace('.mzML', '')
                     for i, cl in enumerate(self.color_me):
-                        if c[1] in label:
+                        if cl[1] in label:
                             zorder = len(self.color_me)+ 2 - i
                             color = cl[0]
                         else:
@@ -580,15 +576,22 @@ class adjust_rt_for_selected_compound(object):
         mz_theoretical = ident.mz_references[0].mz
 
         my_scan_rt = self.msms_hits.index.get_level_values('msms_scan')
-        self.hits = self.msms_hits[(my_scan_rt >= float(self.my_rt.rt_min)) & (my_scan_rt <= float(self.my_rt.rt_max)) & (self.msms_hits['inchi_key'] == inchi_key) \
-                & (abs(self.msms_hits['measured_precursor_mz'] - mz_theoretical)/mz_theoretical <= hits_mz_tolerance)]
+        self.hits = self.msms_hits[(my_scan_rt >= float(self.my_rt.rt_min)) &
+                                   (my_scan_rt <= float(self.my_rt.rt_max)) &
+                                   (self.msms_hits['inchi_key'] == inchi_key) &
+                                   within_tolerance(self.msms_hits['measured_precursor_mz'],
+                                                    mz_theoretical, hits_mz_tolerance)]
+
 
     def msms_mirror_plot(self):
-        hit_file_name, compound = get_hit_metadata(self.data, self.hits, self.file_names, self.hit_ctr, self.compound_idx) 
-        mz_header, rt_header = msms_plot_headers(self.data, self.hits, self.hit_ctr, self.compound_idx, compound)
+        hit_file_name, compound = get_hit_metadata(self.data, self.hits, self.file_names,
+                                                   self.hit_ctr, self.compound_idx)
+        mz_header, rt_header = msms_plot_headers(self.data, self.hits, self.hit_ctr,
+                                                 self.compound_idx, compound)
         hit_ref_id, hit_score, hit_query, hit_ref = get_msms_plot_data(self.hits, self.hit_ctr)
-        self.ax2.ticklabel_format(style='sci', axis='y', scilimits=(0,0))
-        plot_msms_comparison2(0, mz_header, rt_header, hit_ref_id, hit_file_name, hit_score, self.ax2, hit_query, hit_ref)
+        self.ax2.ticklabel_format(style='sci', axis='y', scilimits=(0, 0))
+        plot_msms_comparison2(0, mz_header, rt_header, hit_ref_id, hit_file_name, hit_score,
+                              self.ax2, hit_query, hit_ref)
 
     def layout_figure(self):
         self.gui_scale_factor = self.height/3.25 if self.height < 3.25 else 1
@@ -608,9 +611,9 @@ class adjust_rt_for_selected_compound(object):
         self.plot_bottom_pos = 1.32/(self.height*(2+self.plot_hspace))
 
         # create figure and first axes
-        self.fig,(self.ax2, self.ax) = plt.subplots(2, 1, figsize=(self.width, self.height*(2+self.plot_hspace)))
+        self.fig, (self.ax2, self.ax) = plt.subplots(2, 1, figsize=(self.width, self.height*(2+self.plot_hspace)))
         plt.subplots_adjust(left=self.plot_left_pos, right=self.plot_right_pos,
-                bottom=self.plot_bottom_pos, top=self.plot_top_pos, hspace=self.plot_hspace)
+                            bottom=self.plot_bottom_pos, top=self.plot_top_pos, hspace=self.plot_hspace)
 
         y_axis_height = (self.plot_top_pos - self.plot_bottom_pos)*(1-self.plot_hspace/(2+self.plot_hspace))/2
         self.layout_rt_sliders()
@@ -619,17 +622,24 @@ class adjust_rt_for_selected_compound(object):
 
     def layout_y_scale_slider(self, y_slider_width, y_axis_height):
         self.y_scale_ax = plt.axes([self.plot_right_pos, self.plot_bottom_pos, y_slider_width, y_axis_height],
-                                    facecolor=self.slider_color)
+                                   facecolor=self.slider_color)
 
     def layout_radio_buttons(self, y_slider_width, y_axis_height):
         self.radio_button_radius = 0.02 * self.gui_scale_factor
         radio_button_axes_width = 1-self.plot_right_pos
-        self.lin_log_ax = self.layout_radio_button_set([self.plot_left_pos, self.plot_bottom_pos,
-                          radio_button_axes_width, y_axis_height], anchor='NW')
+        self.lin_log_ax = self.layout_radio_button_set([self.plot_left_pos,
+                                                        self.plot_bottom_pos,
+                                                        radio_button_axes_width,
+                                                        y_axis_height],
+                                                       anchor='NW')
         self.peak_flag_ax = self.layout_radio_button_set([self.plot_right_pos + y_slider_width,
-                            self.plot_bottom_pos, radio_button_axes_width, y_axis_height])
+                                                          self.plot_bottom_pos,
+                                                          radio_button_axes_width,
+                                                          y_axis_height])
         self.msms_flag_ax = self.layout_radio_button_set([self.plot_right_pos,
-                            self.plot_top_pos - y_axis_height, radio_button_axes_width, y_axis_height])
+                                                          self.plot_top_pos - y_axis_height,
+                                                          radio_button_axes_width,
+                                                          y_axis_height])
 
     def layout_radio_button_set(self, area, anchor='SW'):
         # 0.15 is an x-offset when drawing the RadioButons from the matplotlib code
@@ -640,12 +650,12 @@ class adjust_rt_for_selected_compound(object):
         # unused white space to the left of the radio buttons.
         axes = plt.axes([area[0] - (radio_button_center_offset - self.radio_button_radius)/self.width,
                          area[1], area[2], area[3]],
-                         anchor=anchor, aspect='equal')
+                        anchor=anchor, aspect='equal')
         axes.axis('off')
         return axes
 
     def layout_rt_sliders(self):
-        x_axis_label_height =0.5
+        x_axis_label_height = 0.5
         rt_slider_height = (self.plot_bottom_pos-x_axis_label_height/(self.height*(2+self.plot_hspace)))/4.0
         rt_slider_width = self.plot_right_pos - self.plot_left_pos
 
@@ -654,21 +664,21 @@ class adjust_rt_for_selected_compound(object):
         self.rt_max_ax = plt.axes([self.plot_left_pos, rt_slider_height*1.5, rt_slider_width, rt_slider_height],
                                   facecolor=self.slider_color)
         self.rt_min_ax = plt.axes([self.plot_left_pos, rt_slider_height*3.0, rt_slider_width, rt_slider_height],
-                                   facecolor=self.slider_color)
+                                  facecolor=self.slider_color)
 
     def create_radio_buttons(self, axes, labels, on_click_handler, active_idx=0):
         rb = RadioButtons(axes, labels, active=active_idx)
         for circle in rb.circles:
-                circle.set_radius(self.radio_button_radius)
+            circle.set_radius(self.radio_button_radius)
         rb.on_clicked(self.set_msms_flag)
         return rb
 
-    def set_lin_log(self,label):
+    def set_lin_log(self, label):
         self.ax.set_yscale(label)
-        self.ax.ticklabel_format(style='sci', axis='y', scilimits=(0,0))
+        self.ax.ticklabel_format(style='sci', axis='y', scilimits=(0, 0))
         self.fig.canvas.draw_idle()
 
-    def set_peak_flag(self,label):
+    def set_peak_flag(self, label):
         if not self.enable_edit:
             self.warn_if_not_atlas_owner()
             return 
@@ -676,12 +686,12 @@ class adjust_rt_for_selected_compound(object):
         my_id.ms1_notes = label
         metob.store(my_id)
 
-    def set_msms_flag(self,label):
+    def set_msms_flag(self, label):
         my_id = self.compounds[self.data[0][self.compound_idx]['identification'].unique_id]
         my_id.ms2_notes = label
         metob.store(my_id)
 
-    def on_pick(self,event):
+    def on_pick(self, event):
         thisline = event.artist
         thisline.set_color('cyan')
         self.ax.set_title(thisline.get_label(), fontsize=7)
@@ -695,7 +705,7 @@ class adjust_rt_for_selected_compound(object):
         self.y_scale_ax.cla()
         self.set_plot_data()
 
-    def press(self,event):
+    def press(self, event):
         if event.key in ['right', 'l']:
             if self.compound_idx + 1 < len(self.data[0]):
                 self.compound_idx += 1
@@ -717,21 +727,21 @@ class adjust_rt_for_selected_compound(object):
         if event.key == 'x':
             if not self.enable_edit:
                 self.warn_if_not_atlas_owner()
-                return 
+                return
             self.peak_flag_radio.set_active(1)
-            #This is really hacky, but using set_peak_flag function above didn't work.
+            # This is really hacky, but using set_peak_flag function above didn't work.
             my_id = self.compounds[self.data[0][self.compound_idx]['identification'].unique_id]
             my_id.ms1_notes = 'remove'
             metob.store(my_id)
 
-    def update_yscale(self,val):
+    def update_yscale(self, val):
         self.y_scale_slider.valinit = self.slider_val
         self.slider_val = self.y_scale_slider.val
         if self.slider_y_min < 0:
             self.slider_y_min = -0.2*self.slider_val
         else:
             self.slider_y_min = 0.02
-        self.ax.set_ylim(self.slider_y_min,self.slider_val)
+        self.ax.set_ylim(self.slider_y_min, self.slider_val)
         self.fig.canvas.draw_idle()
     
     def warn_if_not_atlas_owner(self):
@@ -751,15 +761,15 @@ class adjust_rt_for_selected_compound(object):
         self.rt_peak_slider.valinit = self.my_rt.rt_peak
 
         metob.store(self.my_rt)
-        self.min_line.set_xdata((self.my_rt.rt_min,self.my_rt.rt_min))
-        self.max_line.set_xdata((self.my_rt.rt_max,self.my_rt.rt_max))
-        self.peak_line.set_xdata((self.my_rt.rt_peak,self.my_rt.rt_peak))
+        self.min_line.set_xdata((self.my_rt.rt_min, self.my_rt.rt_min))
+        self.max_line.set_xdata((self.my_rt.rt_max, self.my_rt.rt_max))
+        self.peak_line.set_xdata((self.my_rt.rt_peak, self.my_rt.rt_peak))
         self.fig.canvas.draw_idle()
 
     def retrieve_compounds(self):
         uids = [x['identification'].unique_id for x in self.data[0]]
-        compounds_list = metob.retrieve('CompoundIdentification', unique_id = uids, username='*')
-        return {c.unique_id:c for c in compounds_list}
+        compounds_list = metob.retrieve('CompoundIdentification', unique_id=uids, username='*')
+        return {c.unique_id: c for c in compounds_list}
 
 class adjust_mz_for_selected_compound(object):
     def __init__(self,
@@ -2057,27 +2067,27 @@ def plot_ema_compound_info(ax, compound_info, label=''):
 
         cellDict = ema_compound_info_table.get_celld()
         for i in range(len(cell_text)+1):
-            cellDict[(i,0)].set_width(0.3)
-            cellDict[(i,1)]._loc = 'center'
+            cellDict[(i, 0)].set_width(0.3)
+            cellDict[(i, 1)]._loc = 'center'
 
     ax.axis('off')
 
 
 def plot_eic(ax, data, compound_idx):
-    for file_idx in range(len(data)):
-
-        rt_min = data[file_idx][compound_idx]['identification'].rt_references[0].rt_min
-        rt_max = data[file_idx][compound_idx]['identification'].rt_references[0].rt_max
-        rt_peak = data[file_idx][compound_idx]['identification'].rt_references[0].rt_peak
+    for sample in data:
+        rt_min = sample[compound_idx]['identification'].rt_references[0].rt_min
+        rt_max = sample[compound_idx]['identification'].rt_references[0].rt_max
+        rt_peak = sample[compound_idx]['identification'].rt_references[0].rt_peak
 
         try:
-            assert len(data[file_idx][compound_idx]['data']['eic']['rt']) > 1
-            x = np.asarray(data[file_idx][compound_idx]['data']['eic']['rt'])
-            y = np.asarray(data[file_idx][compound_idx]['data']['eic']['intensity'])
+            assert len(sample[compound_idx]['data']['eic']['rt']) > 1
+            x = np.asarray(sample[compound_idx]['data']['eic']['rt'])
+            y = np.asarray(sample[compound_idx]['data']['eic']['intensity'])
 
             ax.plot(x, y, 'k-', linewidth=.1, alpha=min(1, 10*(1./len(data))))
-            myWhere = np.logical_and(x>=rt_min, x<=rt_max )
-            ax.fill_between(x,0,y,myWhere, facecolor='c', alpha=min(1, 2*(1./len(data))))
+            my_where = np.logical_and(x >= rt_min, x <= rt_max)
+            # TODO - why  is this necessary
+            ax.fill_between(x, 0, y, my_where, facecolor='c', alpha=min(1, 2*(1./len(data))))
         except (AssertionError, TypeError):
             pass
 
@@ -2091,19 +2101,19 @@ def plot_eic(ax, data, compound_idx):
 
 
 def plot_score_and_ref_file(ax, score, rt, ref):
-    ax.text(0.5, 1, '%.4f'%score,
-        weight='bold',
-        horizontalalignment='center',
-        verticalalignment='top',
-        fontsize=4,
-        transform=ax.transAxes)
+    ax.text(0.5, 1, '%.4f' % score,
+            weight='bold',
+            horizontalalignment='center',
+            verticalalignment='top',
+            fontsize=4,
+            transform=ax.transAxes)
 
-    ax.text(0, .45, fill(str(ref) + ' RT=%5.3f'%rt, width=26),
-        horizontalalignment='left',
-        verticalalignment='center',
-        rotation='vertical',
-        fontsize=2,
-        transform=ax.transAxes)
+    ax.text(0, .45, fill(str(ref) + ' RT=%5.3f' % rt, width=26),
+            horizontalalignment='left',
+            verticalalignment='center',
+            rotation='vertical',
+            fontsize=2,
+            transform=ax.transAxes)
 
 def get_msms_hits(metatlas_dataset, use_labels=False, extra_time=False, keep_nonmatches=False,
                   pre_query='database == "metatlas"',
@@ -3127,31 +3137,36 @@ def filter_empty_metatlas_objects(object_list,field):
     filtered_list = []
     for i,g in enumerate(object_list):
         try:
-            #This bare try/accept is to handle the invalid groups left over in the database from the original objects.
-            #These groups don't conform to the current schema and will throw an error when you query their attributes.
+            # This bare try/accept is to handle the invalid groups left over in the database from the original objects.
+            # These groups don't conform to the current schema and will throw an error when you query their attributes.
             if (len(getattr(g,field)) > 0):
                 filtered_list.append(g)
         except:
             pass
     return filtered_list
 
-def filter_metatlas_objects_by_list(object_list,field,filter_list):
+
+def filter_metatlas_objects_by_list(object_list, field, filter_list):
     filtered_list = []
-    for i,g in enumerate(object_list):
-        if any(ext in getattr(g,field) for ext in filter_list):
+    for i, g in enumerate(object_list):
+        if any(ext in getattr(g, field) for ext in filter_list):
             filtered_list.append(g)
     return filtered_list
 
-def remove_metatlas_objects_by_list(object_list,field,filter_list):
+
+def remove_metatlas_objects_by_list(object_list, field, filter_list):
     filtered_list = []
-    for i,g in enumerate(object_list):
-        if not any(ext in getattr(g,field) for ext in filter_list):
+    for i, g in enumerate(object_list):
+        if not any(ext in getattr(g, field) for ext in filter_list):
             filtered_list.append(g)
     return filtered_list
 
-def filter_lcmsruns_in_dataset_by_include_list(metatlas_dataset,selector,include_list):
+
+def filter_lcmsruns_in_dataset_by_include_list(metatlas_dataset, selector, include_list):
     """
-    Returns a metatlas dataset containing LCMS runs or groups (denoted by selector) that have substrings listed in the include list
+    Returns a metatlas dataset containing LCMS runs or groups (denoted by selector) that have
+    substrings listed in the include list
+
     selector can be 'lcmsrun' or 'group'
     include_list will look something like this: ['QC','Blank']
     """
@@ -3161,9 +3176,12 @@ def filter_lcmsruns_in_dataset_by_include_list(metatlas_dataset,selector,include
             filtered_dataset.append(d)
     return filtered_dataset
 
-def filter_lcmsruns_in_dataset_by_exclude_list(metatlas_dataset,selector,exclude_list):
+
+def filter_lcmsruns_in_dataset_by_exclude_list(metatlas_dataset, selector, exclude_list):
     """
-    Returns a metatlas dataset containing LCMS runs or groups (denoted by selector) that have substrings not listed in the include list
+    Returns a metatlas dataset containing LCMS runs or groups (denoted by selector) that have
+    substrings not listed in the include list
+
     selector can be 'lcmsrun' or 'group'
     exclude_list will look something like this: ['QC','Blank']
     """
@@ -3174,7 +3192,7 @@ def filter_lcmsruns_in_dataset_by_exclude_list(metatlas_dataset,selector,exclude
     return filtered_dataset
 
 
-def filter_compounds_in_dataset_by_exclude_list(metatlas_dataset,exclude_list):
+def filter_compounds_in_dataset_by_exclude_list(metatlas_dataset, exclude_list):
     """
     Since the rows of the dataset are expected to line up with an atlas export, this is probably not a good idea to use.
     """
@@ -3187,6 +3205,7 @@ def filter_compounds_in_dataset_by_exclude_list(metatlas_dataset,exclude_list):
                     filtered_row.append(d)
         filtered_dataset.append(filtered_row)
     return filtered_dataset
+
 
 def filter_compounds_in_dataset_by_include_list(metatlas_dataset,include_list):
     """
@@ -3202,55 +3221,58 @@ def filter_compounds_in_dataset_by_include_list(metatlas_dataset,include_list):
         filtered_dataset.append(filtered_row)
     return filtered_dataset
 
+
 def select_groups_for_analysis(name = '%', description = [], username = '*', do_print = True, most_recent = True, remove_empty = True, include_list = [], exclude_list = []):
     if description:
-        groups = metob.retrieve('Groups', name = name, description = description, username=username)
+        groups = metob.retrieve('Groups', name=name, description=description, username=username)
     else:
-        groups = metob.retrieve('Groups', name = name, username=username)
+        groups = metob.retrieve('Groups', name=name, username=username)
     if most_recent:
-        groups = filter_metatlas_objects_to_most_recent(groups,'name')
+        groups = filter_metatlas_objects_to_most_recent(groups, 'name')
 
     if include_list:
-        groups = filter_metatlas_objects_by_list(groups,'name',include_list)
+        groups = filter_metatlas_objects_by_list(groups, 'name', include_list)
 
     if exclude_list:
-        groups = remove_metatlas_objects_by_list(groups,'name',exclude_list)
+        groups = remove_metatlas_objects_by_list(groups, 'name', exclude_list)
 
     print((len(groups)))
 
     if remove_empty:
-        groups = filter_empty_metatlas_objects(groups,'items')
+        groups = filter_empty_metatlas_objects(groups, 'items')
     if do_print:
-        from datetime import datetime, date
-        for i,a in enumerate(groups):
+        for i, a in enumerate(groups):
             print((i, a.name,  datetime.utcfromtimestamp(a.last_modified)))
 
     return groups
 
+
 def msms_plot_headers(data, hits, hit_ctr, compound_idx, compound):
-    if hits:
+    if not hits.empty:
         rt_ms2 = hits.index.get_level_values('msms_scan')[hit_ctr]
         mz_precursor = hits['measured_precursor_mz'].iloc[hit_ctr]
     mz_measured = compound['data']['ms1_summary']['mz_centroid'] if compound else np.nan
     rt_ms1 = compound['data']['ms1_summary']['rt_peak'] if compound else np.nan
-    source = compound if hits else data[0][compound_idx]
+    source = data[0][compound_idx] if hits.empty else compound
     rt_theoretical = source['identification'].rt_references[0].rt_peak
     mz_theoretical = source['identification'].mz_references[0].mz
     delta_mz = abs(mz_theoretical - mz_measured)
     delta_ppm = delta_mz / mz_theoretical * 1e6
     mz_header = "m/z theoretical = %5.4f, m/z measured = %5.4f, ppm diff = %3.2f" % (mz_theoretical, mz_measured, delta_ppm)
     rt_header = "RT theoretical = %3.2f, RT MS1 measured = %3.2f" % (rt_theoretical, rt_ms1)
-    if hits:
+    if not hits.empty:
         mz_header = ("precursor m/z = %5.4f, " % mz_precursor) + mz_header
         rt_header += ", RT MS2 measured = %3.2f" % rt_ms2
     return (mz_header, rt_header)
 
+
 def get_msms_plot_data(hits, hit_ctr):
-    hit_ref_id = hits.index.get_level_values('id')[hit_ctr] if hits else "N/A"
-    hit_score = hits['score'].iloc[hit_ctr] if hits else np.nan
-    hit_query = hits['msv_query_aligned'][hit_ctr:hit_ctr+1].iloc[0] if hits else np.full((2,2,), np.nan)
-    hit_ref = hits['msv_ref_aligned'][hit_ctr:hit_ctr+1].iloc[0] if hits else hit_query
+    hit_ref_id = "N/A" if hits.empty else hits.index.get_level_values('id')[hit_ctr]
+    hit_score = np.nan if hits.empty else hits['score'].iloc[hit_ctr]
+    hit_query = np.full((2, 2, ), np.nan) if hits.empty else hits['msv_query_aligned'][hit_ctr:hit_ctr+1].iloc[0]
+    hit_ref = hit_query if hits.empty else hits['msv_ref_aligned'][hit_ctr:hit_ctr+1].iloc[0]
     return (hit_ref_id, hit_score, hit_query, hit_ref)
+
 
 def get_hit_metadata(data, hits, file_names, hit_ctr, compound_idx):
     """ 
@@ -3258,10 +3280,14 @@ def get_hit_metadata(data, hits, file_names, hit_ctr, compound_idx):
         file name (without path) of the hit or the string 'None'
         compound object for the hit or None 
     """
-    if hits:
+    if not hits.empty:
         hit_file_name = hits.index.get_level_values('file_name')[hit_ctr],
         return (hit_file_name, data[int(file_names.index(hit_file_name))][compound_idx])
     file_idx = file_with_max_ms1_intensity(data, compound_idx)[0]
     if file_idx:
         return (os.path.basename(data[file_idx][compound_idx]['lcmsrun'].hdf5_file), data[file_idx][compound_idx])
     return ('None', None)
+
+
+def within_tolerance(measured, theoretical, tolerance):
+    return abs(measured - theoretical)/theoretical <= tolerance
