@@ -279,21 +279,18 @@ class adjust_rt_for_selected_compound(object):
         print(("loaded file for username = ", self.atlas.username))
         # only the atlas owner can change RT limits or flags
         self.enable_edit = getpass.getuser() == self.atlas.username
-
-        # Turn On interactive plot
-        plt.ion()
+        self.hit_ctr = 0
+        self.msms_zoom_factor = 1
         # native matplotlib key bindings that we want to override
         disable_keyboard_shortcuts({'keymap.yscale': ['l'],
                                     'keymap.xscale': ['k'],
                                     'keymap.home': ['h']})
+        # Turn On interactive plot
+        plt.ion()
         self.layout_figure()
-
         # create all event handlers
         self.fig.canvas.callbacks.connect('pick_event', self.on_pick)
         self.fig.canvas.mpl_connect('key_press_event', self.press)
-
-        self.hit_ctr = 0
-        self.msms_zoom_factor = 1
         self.set_plot_data()
 
     def set_plot_data(self):
