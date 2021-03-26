@@ -142,7 +142,14 @@ class Workspace(object):
             if os.path.isfile(local_config_file):
                 with open(local_config_file) as fid:
                     local_info = yaml.load(fid)
-                self.path = 'mysql+pymysql://localhost/%s' % (local_info['db_name'])
+                hostname = 'localhost' if 'db_hostname' not in local_info else local_info['db_hostname']
+                login = ''
+                if 'db_username' in local_info:
+                    if 'db_password' in local_info:
+                        login = f"{local_info['db_username']}:{local_info['db_password']}@"
+                    else:
+                        login = f"{local_info['db_username']}@"
+                self.path = f"mysql+pymysql://{login}{hostname}/{local_info['db_name']}"
             else:
                 self.path = 'sqlite:///' + getpass.getuser() + '_workspace.db'
 
