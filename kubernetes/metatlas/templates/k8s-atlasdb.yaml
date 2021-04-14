@@ -1,0 +1,29 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: metatlas-atlasdb
+  labels:
+    app: metatlas
+spec:
+  selector:
+    matchLabels:
+      app: metatlas
+      tier: db
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: metatlas
+        tier: db
+    spec:
+      containers:
+        - name: atlasdb
+          image: {{ .Values.dbImage }}
+          imagePullPolicy: {{ .Values.imageConfig.pullPolicy }}
+          env:
+          - name: MYSQL_ROOT_PASSWORD
+            value: mypw
+          ports:
+          - containerPort: 3306
+            name: mysql

@@ -1,0 +1,13 @@
+# Default values for metatlas.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+hostSourcePath: /Users/WJHoltz/metatlas-dev
+
+imageConfig:
+  pullPolicy: IfNotPresent
+
+metatlasImage: metatlas
+
+dbImage: atlasdb
+
