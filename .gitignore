@@ -60,6 +60,8 @@ target/
 *.mzXML
 *.h5
 *.DS_Store
+*.sql
+*.tab
 
 # kbase installation directories
 bootstrap/
@@ -71,8 +73,10 @@ kb_auth_do_not_commit.dat
 docs/source/api/
 
 metatlas/local_config/
+metatlas/datastructures/local_config/
 
 4notebooks/
 scratch/
 
 .idea
+

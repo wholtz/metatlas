@@ -27,11 +27,11 @@ spec:
             protocol: TCP
         livenessProbe:
           httpGet:
-            path: /
+            path: /tree
             port: http
         readinessProbe:
           httpGet:
-            path: /
+            path: /tree
             port: http
         env:
         - name: METATLAS_DB_HOST
