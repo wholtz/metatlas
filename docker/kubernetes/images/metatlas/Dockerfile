@@ -1,4 +1,4 @@
-FROM mambaorg/micromamba:0.11.3
+FROM mambaorg/micromamba:0.12.0
 
 RUN micromamba install -y -n base -c conda-forge \
 	dill \
@@ -26,20 +26,18 @@ ENV METATLAS_LOCAL=True
 
 EXPOSE 8888
 
-RUN mkdir -p /src
+RUN mkdir -p /io /src /work
 
-RUN mkdir -p /work
+WORKDIR /work
+
+COPY meta_atlas.sqlite3 /work/root_workspace.db
 
 RUN mkdir -p /global/project/projectdirs/metatlas/projects/spectral_libraries
 
 COPY msms_refs_v3.tab /global/project/projectdirs/metatlas/projects/spectral_libraries/
 
-COPY meta_atlas.sqlite3 /work/root_workspace.db
+RUN mkdir -p /project/projectdirs/metatlas/raw_data/akuftin/20201106_JGI-AK_PS-KM_505892_OakGall_final_QE-HF_HILICZ_USHXG01583/
 
-RUN mkdir -p /project/projectdirs/metatlas/raw_data/akuftin/20201116_JGI-AK_LH_506489_SoilWarm_final_QE-HF_HILICZ_USHXG01530
-
-COPY *.h5 /project/projectdirs/metatlas/raw_data/akuftin/20201116_JGI-AK_LH_506489_SoilWarm_final_QE-HF_HILICZ_USHXG01530/
-
-WORKDIR /work
+COPY *.h5 /project/projectdirs/metatlas/raw_data/akuftin/20201106_JGI-AK_PS-KM_505892_OakGall_final_QE-HF_HILICZ_USHXG01583/
 
 CMD ["/opt/conda/bin/jupyter", "nbclassic", "--ip=0.0.0.0", "--allow-root", "--ServerApp.token=''", "--ServerApp.root_dir=/"]
