@@ -8,9 +8,11 @@ dependencies:
   - dill=0.3.3
   - gspread=3.7.0
   - hdf5=1.10.6
+  - ipympl=0.7.0
   - ipywidgets=7.6.3
   - jupyterlab=3.0.14
   - matplotlib=3.4.1
+  - nodejs=15.14.0
   - oauth2client=4.1.3
   - pandas=1.2.4
   - papermill=2.3.3

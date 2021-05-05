@@ -1,4 +1,4 @@
-FROM mambaorg/micromamba:0.12.0
+FROM mambaorg/micromamba:0.12.2
 
 ARG BASE_DATA_URL=https://portal.nersc.gov/cfs/m2650/metatlas/test_data/ci01
 ARG REFS_DIR=/global/project/projectdirs/metatlas/projects/spectral_libraries
@@ -26,4 +26,4 @@ ADD $BASE_DATA_URL/meta_atlas.sqlite3 /work/root_workspace.db
 
 WORKDIR /work
 
-CMD ["/opt/conda/bin/jupyter", "nbclassic", "--ip=0.0.0.0", "--allow-root", "--ServerApp.token=''", "--ServerApp.root_dir=/"]
+CMD ["/opt/conda/bin/jupyter", "lab", "--ip=0.0.0.0", "--allow-root", "--ServerApp.token=''", "--ServerApp.root_dir=/"]
